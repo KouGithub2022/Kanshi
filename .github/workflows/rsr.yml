@@ -1,37 +1,47 @@
-name: RSR監視
+name: RotationSolverReborn 更新監視 (コミット)
+
+permissions:
+  contents: write
 
 on:
   schedule:
-    - cron: '*/15 * * * *'   # 15分ごと（無料枠注意）
+    - cron: '*/15 * * * *'   # 15分ごと（頻度高いので30分にしてもOK）
+  workflow_dispatch:
 
 jobs:
-  check:
+  monitor:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: 前回のコミット記録を取る
-        run: |
-          git clone --depth 1 https://github.com/FFXIV-CombatReborn/RotationSolverReborn.git temp
-          cd temp
-          LAST_COMMIT=$(git rev-parse HEAD)
-          cd ..
-          echo "LAST_COMMIT=$LAST_COMMIT" >> $GITHUB_ENV
-
-      - name: 前回と比較
-        run: |
-          if [ -f last_commit.txt ]; then
-            PREV=$(cat last_commit.txt)
-            if [ "$PREV" != "${{ env.LAST_COMMIT }}" ]; then
-              echo "更新あり！"
-              curl -X POST -H 'Content-type: application/json' \
-              --data '{"content":"【更新】 https://github.com/FFXIV-CombatReborn/RotationSolverReborn \n最新コミット: ${{ env.LAST_COMMIT }}"}' \
-              https://discord.com/api/webhooks/1456544591506440317/abgbQUHrEeHv1VT2WNaXyz-mgPjZMrtum0dnorsu5kj5gumjcTWO4u1eO5Iz03udiTg9
-            fi
-          fi
-          echo "${{ env.LAST_COMMIT }}" > last_commit.txt
-
-      - name: 変更をコミット
-        uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: Update last commit hash
+          fetch-depth: 0
+
+      - name: 最新コミットハッシュ取得 & 前回比較
+        id: hash_check
+        run: |
+          PREV_HASH=""
+          [ -f last_hash.txt ] && PREV_HASH=$(cat last_hash.txt)
+
+          LATEST_HASH=$(git ls-remote https://github.com/FFXIV-CombatReborn/RotationSolverReborn.git HEAD | awk '{print $1}')
+
+          echo "prev=$PREV_HASH" >> $GITHUB_OUTPUT
+          echo "latest=$LATEST_HASH" >> $GITHUB_OUTPUT
+
+      - name: 更新があればDiscord通知
+        if: steps.hash_check.outputs.prev != steps.hash_check.outputs.latest
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+          -d '{
+            "content": "**RotationSolverReborn 更新検知！** 🔥\n最新コミット: `${{ steps.hash_check.outputs.latest }}`\nリポジトリ: https://github.com/FFXIV-CombatReborn/RotationSolverReborn\n(前回: ${{ steps.hash_check.outputs.prev || '初回' }})\nチェック時刻: $(date -u +"%Y-%m-%d %H:%M UTC")\n→ ローテ最新版に更新推奨！ 新ジョブ調整入ってるかも？"
+          }' \
+          ${{ secrets.DISCORD_WEBHOOK }}
+
+      - name: ハッシュ更新 & コミット（変更時のみ）
+        if: steps.hash_check.outputs.prev != steps.hash_check.outputs.latest
+        run: |
+          echo "${{ steps.hash_check.outputs.latest }}" > last_hash.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add last_hash.txt
+          git commit -m "Update last hash [skip ci]" || echo "No change"
+          git push --force origin HEAD:main || echo "Push skipped"
