@@ -1,5 +1,8 @@
 name: Dalamud監視
 
+permissions:          # ← これを追加（必須！）
+  contents: write     # pushできるようにする
+  
 on:
   schedule:
     - cron: '*/15 * * * *'   # 15分ごと（無料枠注意）
