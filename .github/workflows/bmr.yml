@@ -1,5 +1,8 @@
 name: BMR監視
 
+permissions:          # ← これを追加（必須！）
+  contents: write     # pushできるようにする
+  
 on:
   schedule:
     - cron: '*/15 * * * *'   # 15分ごと（無料枠注意）
@@ -35,3 +38,5 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: Update last commit hash
+          file_pattern: .
+          push_options: '--force'          # ← これを追加（--force-with-lease でもOKだが --force が確実）
