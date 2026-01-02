@@ -1,4 +1,4 @@
-name: 他人のリポジトリ監視
+name: RSR監視
 
 on:
   schedule:
