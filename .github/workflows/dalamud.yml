@@ -1,4 +1,4 @@
-name: 他人のリポジトリ監視
+name: Dalamud監視
 
 on:
   schedule:
