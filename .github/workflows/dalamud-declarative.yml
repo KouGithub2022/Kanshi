@@ -1,0 +1,37 @@
+name: 他人のリポジトリ監視
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # 15分ごと（無料枠注意）
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: 前回のコミット記録を取る
+        run: |
+          git clone --depth 1 https://github.com/goatcorp/dalamud-declarative.git temp
+          cd temp
+          LAST_COMMIT=$(git rev-parse HEAD)
+          cd ..
+          echo "LAST_COMMIT=$LAST_COMMIT" >> $GITHUB_ENV
+
+      - name: 前回と比較
+        run: |
+          if [ -f last_commit.txt ]; then
+            PREV=$(cat last_commit.txt)
+            if [ "$PREV" != "${{ env.LAST_COMMIT }}" ]; then
+              echo "更新あり！"
+              curl -X POST -H 'Content-type: application/json' \
+              --data '{"content":"【更新】 https://github.com/goatcorp/dalamud-declarative \n最新コミット: ${{ env.LAST_COMMIT }}"}' \
+              https://discord.com/api/webhooks/1456544591506440317/abgbQUHrEeHv1VT2WNaXyz-mgPjZMrtum0dnorsu5kj5gumjcTWO4u1eO5Iz03udiTg9
+            fi
+          fi
+          echo "${{ env.LAST_COMMIT }}" > last_commit.txt
+
+      - name: 変更をコミット
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: Update last commit hash
